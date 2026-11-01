@@ -69,5 +69,5 @@ It provides two recovery mechanisms:
 Refer to the following files for implementation details:
 
 - [Commands](commands.md) – Setup, provisioning, verification, and recovery tests.
-- [Learnings](learnings.md) – Cloud-Init architecture, execution lifecycle, datasources, metadata, and other concepts.
+- [Learnings](learning.md) – Cloud-Init architecture, execution lifecycle, datasources, metadata, and other concepts.
 
