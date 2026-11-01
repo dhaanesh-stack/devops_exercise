@@ -1,0 +1,86 @@
+#cloud-config
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - docker.io
+  - git
+  - curl
+  - ffmpeg
+
+users:
+  - name: testpress
+    gecos: Testpress Application User
+    groups:
+      - docker
+    shell: /bin/bash
+    sudo: []
+    lock_passwd: true
+
+write_files:
+  - path: /opt/testpress/app.env
+    owner: root:root
+    content: |
+      APP_NAME=Testpress
+      APP_ENV=development
+      APP_PORT=8080
+
+  - path: /opt/testpress/app.py
+    owner: root:root
+    content: |
+      from http.server import BaseHTTPRequestHandler, HTTPServer
+
+      class Handler(BaseHTTPRequestHandler):
+          def do_GET(self):
+              self.send_response(200)
+              self.send_header("Content-Type", "text/plain")
+              self.end_headers()
+              self.wfile.write(b"Hello from Testpress!")
+
+      server = HTTPServer(("0.0.0.0", 8080), Handler)
+      print("Testpress server running on port 8080", flush=True)
+      server.serve_forever()
+
+  - path: /opt/testpress/Dockerfile
+    owner: root:root
+    content: |
+      FROM python:3.12-slim
+
+      WORKDIR /app
+
+      COPY app.py .
+
+      EXPOSE 8080
+
+      HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+      CMD python -c "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8080/'); assert r.read() == b'Hello from Testpress!'" || exit 1
+
+      CMD ["python", "app.py"]
+
+  - path: /etc/systemd/system/testpress.service
+    owner: root:root
+    content: |
+      [Unit]
+      Description=Testpress Dockerized HTTP Application
+      Requires=docker.service
+      After=docker.service
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/docker start -a testpress-app
+      ExecStop=/usr/bin/docker stop -t 10 testpress-app
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl enable docker
+  - systemctl start docker
+  - docker build -t testpress-app:latest /opt/testpress
+  - docker create --name testpress-app --restart=no -p 8080:8080 --env-file /opt/testpress/app.env testpress-app:latest
+  - systemctl daemon-reload
+  - systemctl enable testpress.service
+  - systemctl start testpress.service
