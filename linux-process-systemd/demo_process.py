@@ -1,9 +1,6 @@
 import os
 import time
 
-
-
-
 print(f"Demo process started. PID: {os.getpid()}", flush=True)
 
 while True:
